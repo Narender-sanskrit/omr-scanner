@@ -1,0 +1,59 @@
+{
+  "name": "q20-5opt",
+  "version": 2,
+  "canvas": {
+    "w": 1000,
+    "h": 1414
+  },
+  "markers": [
+    [
+      70,
+      70
+    ],
+    [
+      930,
+      70
+    ],
+    [
+      930,
+      1344
+    ],
+    [
+      70,
+      1344
+    ]
+  ],
+  "markerSize": 50,
+  "fields": [
+    {
+      "key": "roll",
+      "label": "ROLL NUMBER",
+      "digits": 5,
+      "labels": "0123456789",
+      "x0": 110,
+      "y0": 326,
+      "dx": 34,
+      "dy": 20,
+      "r": 7
+    }
+  ],
+  "questions": {
+    "count": 20,
+    "columns": 1,
+    "perColumn": 20,
+    "options": 5,
+    "x0": 130,
+    "y0": 560,
+    "dxOption": 40,
+    "dyRow": 33,
+    "dxColumn": 310,
+    "r": 7.5
+  },
+  "optionLabels": [
+    "A",
+    "B",
+    "C",
+    "D",
+    "E"
+  ]
+}

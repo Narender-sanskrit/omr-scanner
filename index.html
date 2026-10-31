@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>OMR Scanner — scan answer sheets, get a spreadsheet</title>
+<meta name="description" content="Scan OMR answer sheets with your phone camera and get a spreadsheet. Works offline, stores no images." />
+<meta name="theme-color" content="#3b3bd6" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="OMR Scanner" />
+<link rel="manifest" href="manifest.webmanifest" />
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/icon-192.png" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <svg viewBox="0 0 24 24" class="logo" aria-hidden="true">
+      <rect x="2.5" y="2.5" width="6" height="6" rx="1.2"/>
+      <rect x="15.5" y="2.5" width="6" height="6" rx="1.2"/>
+      <rect x="2.5" y="15.5" width="6" height="6" rx="1.2"/>
+      <circle cx="18.5" cy="18.5" r="3.4"/>
+    </svg>
+    <span>OMR Scanner</span>
+  </div>
+  <button class="btn primary installbar hidden" id="installBtn">⤓ Install app</button>
+  <nav class="tabs" id="tabs">
+    <button data-view="setup" class="active">1 · Setup</button>
+    <button data-view="scan">2 · Scan</button>
+    <button data-view="results">3 · Results <span class="pill" id="countPill">0</span></button>
+    <button data-view="sheet">Sheet template</button>
+  </nav>
+</header>
+
+<main>
+
+<!-- ============================ SETUP ============================ -->
+<section class="view active" id="view-setup">
+
+  <div class="card installcard" id="installCard">
+    <div class="installrow">
+      <div>
+        <h2>Put it on your home screen</h2>
+        <p class="muted">Install once and it behaves like any other app: tap the icon, it opens full screen, no address bar, and it works with no internet.</p>
+      </div>
+      <button class="btn primary big" id="installBtn2">Install app</button>
+    </div>
+    <p class="hint" id="installState"></p>
+    <details class="mt">
+      <summary class="muted small">Button not showing? Do it by hand</summary>
+      <div class="steps mt">
+        <div><b>1</b><span><b>Android, Chrome:</b> tap the ⋮ menu (top right) → <em>Install app</em> or <em>Add to Home screen</em> → Install.</span></div>
+        <div><b>2</b><span><b>iPhone, Safari:</b> tap the Share icon (square with an arrow) → scroll down → <em>Add to Home Screen</em> → Add.</span></div>
+        <div><b>3</b><span>Open the <em>github.io</em> link, not a file saved on the phone — the camera only works on a secure (https) page.</span></div>
+      </div>
+    </details>
+  </div>
+
+  <div class="grid2">
+
+    <div class="card">
+      <h2>Answer key</h2>
+      <p class="muted">Fill it once. Every sheet is checked against it.</p>
+
+      <div class="row gap">
+        <input id="keyName" type="text" placeholder="Key name (e.g. Unit Test 3 — Set A)" />
+        <button class="btn ghost" id="keyClear">Clear</button>
+      </div>
+
+      <label class="lbl">Fast entry — type one letter per question</label>
+      <div class="row gap">
+        <input id="keyText" type="text" spellcheck="false" placeholder="ABCDABCD... or 1,3,2,4" />
+        <button class="btn" id="keyApply">Apply</button>
+      </div>
+      <p class="hint">Letters A–D (up to your template's option count), or digits 1,2,3,4. Use <code>-</code> to leave a question out of scoring.</p>
+
+      <details class="keybox">
+        <summary>Or tap the grid <span id="keyProgress" class="muted"></span></summary>
+        <div class="keygrid" id="keyGrid"></div>
+      </details>
+
+      <div class="row gap mt">
+        <button class="btn ghost" id="keyExport">Download key (.json)</button>
+        <label class="btn ghost file">
+          Load key
+          <input type="file" id="keyImport" accept=".json,application/json" hidden />
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Students <span class="muted small">(optional)</span></h2>
+      <p class="muted">Roll number is read from the bubbles. Name and class are looked up here.</p>
+
+      <label class="btn ghost file wide">
+        Upload roster CSV
+        <input type="file" id="rosterImport" accept=".csv,text/csv" hidden />
+      </label>
+      <p class="hint">Format: <code>roll,name,class</code> — one student per line. Without it you still get roll numbers and scores.</p>
+      <div id="rosterInfo" class="muted small"></div>
+
+      <h2 class="mt">Scoring</h2>
+      <div class="field">
+        <label for="relMin">Ink sensitivity <output id="relMinOut">34</output></label>
+        <input type="range" id="relMin" min="15" max="60" value="34" />
+        <p class="hint">Lower = catches faint pencil, but may read smudges as answers.</p>
+      </div>
+      <div class="field">
+        <label for="multiRel">Double-mark strictness <output id="multiRelOut">55</output>%</label>
+        <input type="range" id="multiRel" min="30" max="85" value="55" />
+        <p class="hint">If the second-darkest circle is this close to the darkest, the question is flagged for you instead of being guessed.</p>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="card">
+    <h2>How it works</h2>
+    <div class="steps">
+      <div><b>1</b> Print the sheet from the <em>Sheet template</em> tab (or use your own).</div>
+      <div><b>2</b> Fill the key above, load your roster, then go to <em>Scan</em>.</div>
+      <div><b>3</b> Photograph each sheet — all four black corner squares must be visible.</div>
+      <div><b>4</b> Review anything the app flagged, then export CSV / JSON.</div>
+    </div>
+    <p class="hint">Everything runs inside this browser tab. No uploads, no accounts, no per-scan cost. Photos are discarded as soon as a sheet is read — only the row of results is kept.</p>
+  </div>
+</section>
+
+<!-- ============================ SCAN ============================ -->
+<section class="view" id="view-scan">
+  <div class="grid2">
+
+    <div class="card">
+      <h2>Camera</h2>
+      <div class="camwrap">
+        <video id="video" playsinline muted></video>
+        <div class="camhint" id="camHint">Tap “Start camera”.</div>
+      </div>
+      <div class="row gap mt">
+        <button class="btn" id="camStart">Start camera</button>
+        <button class="btn primary" id="camShot" disabled>Capture sheet</button>
+        <button class="btn ghost" id="camStop" disabled>Stop</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Or use photos</h2>
+      <label class="btn ghost file wide">
+        Choose photos (multiple allowed)
+        <input type="file" id="filePick" accept="image/*" multiple hidden />
+      </label>
+      <div class="row gap mt">
+        <button class="btn ghost" id="loadDemo">Load the sample sheets</button>
+        <button class="btn ghost" id="dropImages">Release stored photos</button>
+      </div>
+      <p class="hint">Photos are processed in memory. A sheet with nothing to review is dropped immediately; only flagged sheets keep their photo until you finish reviewing.</p>
+
+      <h2 class="mt">This session</h2>
+      <div class="statrow">
+        <div class="stat"><span id="statScanned">0</span><small>sheets</small></div>
+        <div class="stat"><span id="statFlagged">0</span><small>need review</small></div>
+        <div class="stat"><span id="statAvg">—</span><small>avg score</small></div>
+      </div>
+      <div id="scanLog" class="log"></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============================ RESULTS ============================ -->
+<section class="view" id="view-results">
+  <div class="card">
+    <div class="row between wrap">
+      <h2>Results <span class="muted small" id="resultSummary"></span></h2>
+      <div class="row gap">
+        <label class="chk"><input type="checkbox" id="optPerQ" checked /> include Q1..Qn columns</label>
+        <button class="btn primary" id="exportCsv">Download CSV</button>
+        <button class="btn ghost" id="exportJson">JSON</button>
+        <button class="btn ghost danger" id="clearAll">Clear</button>
+      </div>
+    </div>
+    <div class="tablewrap">
+      <table id="resultTable">
+        <thead></thead>
+        <tbody></tbody>
+      </table>
+      <p class="empty" id="emptyResults">No sheets scanned yet. Head to <em>Scan</em>.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ========================= SHEET TEMPLATE ======================== -->
+<section class="view" id="view-sheet">
+  <div class="grid2">
+
+    <div class="card">
+      <h2>Default sheet</h2>
+      <p class="muted">A4, 90 questions × 4 options, 5-digit roll number, four corner squares.</p>
+      <div class="row gap mt">
+        <a class="btn primary" href="samples/omr-sheet-blank.pdf" download>Download printable PDF</a>
+        <a class="btn ghost" href="samples/omr-sheet-blank.png" download>PNG</a>
+      </div>
+      <p class="hint">Print at 100% / “actual size”, not “fit to page”. The four black squares are what the scanner locks onto.</p>
+
+      <h2 class="mt">Saved templates</h2>
+      <div id="templateList" class="tpllist"></div>
+      <div class="row gap mt">
+        <label class="btn ghost file">
+          Import template JSON
+          <input type="file" id="tplImport" accept=".json,application/json" hidden />
+        </label>
+        <button class="btn ghost" id="tplExport">Export active</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Build a template for your own sheet</h2>
+      <p class="muted">Your sheet must have four solid black squares, one near each corner.</p>
+      <label class="btn ghost file wide">
+        Upload a photo of your blank sheet
+        <input type="file" id="tplImage" accept="image/*" hidden />
+      </label>
+
+      <div id="tplStage" class="stage hidden">
+        <canvas id="tplCanvas"></canvas>
+        <div class="stagehint" id="tplHint">Click the four corner squares in order: top-left → top-right → bottom-right → bottom-left.</div>
+      </div>
+
+      <div id="tplForm" class="hidden">
+        <div class="grid3">
+          <div class="field"><label>Questions</label><input type="number" id="tqCount" value="90" min="1" max="300" /></div>
+          <div class="field"><label>Options</label><input type="number" id="tqOptions" value="4" min="2" max="6" /></div>
+          <div class="field"><label>Columns</label><input type="number" id="tqCols" value="3" min="1" max="6" /></div>
+          <div class="field"><label>Per column</label><input type="number" id="tqPer" value="30" min="1" max="100" /></div>
+          <div class="field"><label>Option pitch</label><input type="number" id="tqDx" value="40" step="0.5" /></div>
+          <div class="field"><label>Row pitch</label><input type="number" id="tqDy" value="24" step="0.5" /></div>
+          <div class="field"><label>Column pitch</label><input type="number" id="tqDc" value="310" step="0.5" /></div>
+          <div class="field"><label>Bubble radius</label><input type="number" id="tqR" value="7.5" step="0.5" /></div>
+          <div class="field"><label>First bubble X</label><input type="number" id="tqX" value="130" step="0.5" /></div>
+          <div class="field"><label>First bubble Y</label><input type="number" id="tqY" value="566" step="0.5" /></div>
+          <div class="field"><label>Roll digits</label><input type="number" id="trDigits" value="5" min="0" max="8" /></div>
+          <div class="field"><label>Roll rows</label><input type="number" id="trRows" value="10" min="2" max="12" /></div>
+          <div class="field"><label>Roll X</label><input type="number" id="trX" value="110" step="0.5" /></div>
+          <div class="field"><label>Roll Y</label><input type="number" id="trY" value="326" step="0.5" /></div>
+          <div class="field"><label>Column pitch</label><input type="number" id="trDx" value="34" step="0.5" /></div>
+          <div class="field"><label>Row pitch</label><input type="number" id="trDy" value="20" step="0.5" /></div>
+          <div class="field"><label>Class digits (0 = none)</label><input type="number" id="tcDigits" value="2" min="0" max="3" /></div>
+          <div class="field"><label>Class X</label><input type="number" id="tcX" value="315" step="0.5" /></div>
+          <div class="field"><label>Section letters (0 = none)</label><input type="number" id="tsCount" value="8" min="0" max="12" /></div>
+          <div class="field"><label>Section X</label><input type="number" id="tsX" value="430" step="0.5" /></div>
+        </div>
+        <div class="row gap mt">
+          <input id="tplName" type="text" placeholder="Template name" />
+          <button class="btn primary" id="tplSave">Save &amp; use</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+</main>
+
+<!-- ======================= REVIEW DIALOG ======================== -->
+<div class="modal hidden" id="reviewModal">
+  <div class="modalbox">
+    <div class="row between">
+      <h3 id="reviewTitle">Review</h3>
+      <button class="btn ghost" id="reviewClose">Close</button>
+    </div>
+    <p class="muted small" id="reviewSub"></p>
+    <div id="reviewBody" class="reviewlist"></div>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="omr-engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
